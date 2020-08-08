@@ -10,16 +10,16 @@ from keras import layers
 # Arguments
 parser = argparse.ArgumentParser(description='Trains a convolutional neural network model with the preprocessed CNR-EXT dataset and exports it')
 
-parser.add_argument('--output', dest = 'file_name', action = 'store_const',
-                    default = "model", const = sum,
+parser.add_argument('--output', dest = 'file_name', 
+                    default = "model", 
                     help = 'name of the json and h5 files to which the cnn model will be exported (default: "model")')
 
-parser.add_argument('--model', dest = 'model_name', action = 'store_const',
-                    default = "MobileNetV2", const = sum,
+parser.add_argument('--model', dest = 'model_name', 
+                    default = "MobileNetV2", 
                     help = 'name of the cnn model (default: "MobileNetV2")')
 
-parser.add_argument('--data-dir', dest = 'dataset_directory', action = 'store_const',
-                    default = "dataset/", const = sum,
+parser.add_argument('--data-dir', dest = 'dataset_directory', 
+                    default = "dataset/", 
                     help = 'directory of the dataset used for training (default: "dataset/")')
 
 # Creates a mobilenet v2 base model
