@@ -15,10 +15,6 @@ parser.add_argument('-m', '--model', dest='model_path', default="model.json",
 parser.add_argument('-w', '--weights', dest='weights_path', default="model.h5",
                     help='path to the weights file (default: "model.h5")')
 
-parser.add_argument('--base', dest='model_base_name',
-                    default="MobileNetV2",
-                    help='name of the base of the neural network model (default: "MobileNetV2")')
-
 parser.add_argument('-i', '--image', dest='img_path', default="image.jpg",
                     help='path to the image that should be classified (default: "image.jpg")')
 

@@ -2,7 +2,6 @@
 from PIL import Image
 import argparse
 import pandas as pd
-import csv
 import os
 
 import time
@@ -25,9 +24,11 @@ parser.add_argument('--number', dest='camera_number', action='store_const',
                     default="5", const=sum,
                     help='number of the target camera (default: 5)')
 
+
 def crop_and_resize_image(img, x, y, width, height):
     dims_tuple = (x, y, width, height)
     return img.crop(box = dims_tuple).resize((75,75))
+
 
 def exec_operations(name, output_folder, xstart_arr, ystart_arr, xend_arr, yend_arr, free_index, occupied_index):
     img = Image.open(name)
@@ -93,6 +94,7 @@ def main():
     args = parser.parse_args()
     crops = pd.read_csv(args.crop_csv)
     iterate(args.input_folder_name, "camera" + args.camera_number, crops, args.output_folder_name)
+
 
 if __name__ == "__main__":
     main()
