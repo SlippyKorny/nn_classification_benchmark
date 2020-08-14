@@ -1,3 +1,3 @@
 # nn_benchmark
 
-A simple benchmark of a couple of convolutional neural network models.
+A simple classification benchmark of a couple of convolutional and residual neural network models.
