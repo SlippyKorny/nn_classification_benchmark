@@ -28,6 +28,8 @@ parser.add_argument('--data-dir', dest='dataset_directory',
                     default="dataset/",
                     help='directory of the dataset used for training (default: "dataset/")')
 
+parser.add_argument('--yes', '-y', type=bool, default=False, help='skips the model confirmation if set to true')
+
 
 # Creates a mobilenet v2 base model
 def get_mobilenet_v2_model(img_shape):
@@ -63,6 +65,8 @@ def load_dataset(data_dir, img_height, img_width, batch_size):
         data_dir, validation_split=0.2, subset="validation",
         seed=123, image_size=(img_height, img_width),
         batch_size=batch_size)
+    train_labels = train_ds.class_names
+    val_labels = val_ds.class_names
 
     # Scale the RGB values to 0-1.0 range
     normalization_layer = tf.keras.layers.experimental.preprocessing.Rescaling(1. / 255)
@@ -75,7 +79,7 @@ def load_dataset(data_dir, img_height, img_width, batch_size):
     train_ds = train_ds.cache().prefetch(buffer_size=autotune_buffer_size)
     val_ds = val_ds.cache().prefetch(buffer_size=autotune_buffer_size)
 
-    return train_ds, val_ds
+    return (train_labels, train_ds), (val_labels, val_ds)
 
 
 # Creates the classifier and applies it to the base model
@@ -100,7 +104,9 @@ def main():
 
     # Load the data
     data_dir = pathlib.Path(args.dataset_directory)
-    train_ds, val_ds = load_dataset(data_dir, img_size, img_size, BATCH_SIZE)
+    (train_labels, train_ds), (val_labels, val_ds) = load_dataset(data_dir, img_size, img_size, BATCH_SIZE)
+    print("training labels(" + str(len(train_labels)) + "): ", train_labels)
+    print("validation labels(" + str(len(val_labels)) + "): ", val_labels)
 
     # Load the base model and then apply the classifier
     model_switcher = {
@@ -113,14 +119,15 @@ def main():
 
     # Display the model and ask whether it is correct
     model.summary()
-    decision = input("Proceed with this model? (y/n):")
-    if decision == '' or decision[0] != 'y':
-        return
+    if not args.yes:
+        decision = input("Proceed with this model? (y/n):")
+        if decision == '' or decision[0] != 'y':
+            return
 
     # Train the model
     base_learning_rate = 0.0001
     model.compile(optimizer=tf.keras.optimizers.RMSprop(lr=base_learning_rate),
-                  loss=tf.keras.losses.BinaryCrossentropy(from_logits=True),
+                  loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
                   metrics=['accuracy'])
     history = model.fit(train_ds, epochs=epochs,
                         validation_data=val_ds)
