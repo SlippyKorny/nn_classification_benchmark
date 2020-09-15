@@ -17,8 +17,8 @@ parser.add_argument('--epochs', dest='epochs',
                     help='number of training epochs (default: 20)')
 
 parser.add_argument('--classes', dest='class_count',
-                    default="1",
-                    help='number of classes (default: 1)')
+                    default="2",
+                    help='number of classes (default: 2)')
 
 parser.add_argument('--model', dest='model_name',
                     default="MobileNetV2",

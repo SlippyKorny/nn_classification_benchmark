@@ -19,20 +19,27 @@ parser.add_argument('-i', '--image', dest='img_path', default="image.jpg",
                     help='path to the image that should be classified (default: "image.jpg")')
 
 # Classes
-classes = ['ampeln', 'doppelkurve_links', 'einschränkungsende', 'einseitig_(rechts)_verengte_fahrbahn', 'fußgänger',
-           'gefahrstelle', 'kinder', 'kreisverkehr', 'kurve_links', 'kurve_rechts', 'radverkehr',
-           'schleuder-_oder_rutschgefahr', 'schnee-_oder_eisglätte', 'stop', 'straßenarbeiten', 'unebene_fahrbahn',
-           'verbot_der_einfahrt', 'verbot_für_lastkraftwagen', 'verboten', 'vorfahrt', 'vorfahrt_geben',
-           'vorfahrtstraße', 'vorgeschriebene_fahrtrichtung_geradeaus',
-           'vorgeschriebene_fahrtrichtung_geradeaus_oder_links', 'vorgeschriebene_fahrtrichtung_geradeaus_oder_rechts',
-           'vorgeschriebene_fahrtrichtung_links', 'vorgeschriebene_fahrtrichtung_links_vorbei',
-           'vorgeschriebene_fahrtrichtung_rechts', 'vorgeschriebene_fahrtrichtung_rechts_vorbei', 'wildwechsel',
-           'zulässige_höchstgeschwindigkeit_100', 'zulässige_höchstgeschwindigkeit_120',
-           'zulässige_höchstgeschwindigkeit_20', 'zulässige_höchstgeschwindigkeit_30',
-           'zulässige_höchstgeschwindigkeit_50', 'zulässige_höchstgeschwindigkeit_60',
-           'zulässige_höchstgeschwindigkeit_70', 'zulässige_höchstgeschwindigkeit_80',
-           'zulässige_höchstgeschwindigkeit_80_ende', 'überholen_verboten_ende', 'überholen_verboten_ende_tir',
-           'überholverbot', 'überholverbot_tir']
+traffic_sign_labels = ['ampeln', 'doppelkurve_links', 'einschränkungsende', 'einseitig_(rechts)_verengte_fahrbahn',
+                        'fußgänger',
+                        'gefahrstelle', 'kinder', 'kreisverkehr', 'kurve_links', 'kurve_rechts', 'radverkehr',
+                        'schleuder-_oder_rutschgefahr', 'schnee-_oder_eisglätte', 'stop', 'straßenarbeiten',
+                        'unebene_fahrbahn',
+                        'verbot_der_einfahrt', 'verbot_für_lastkraftwagen', 'verboten', 'vorfahrt', 'vorfahrt_geben',
+                        'vorfahrtstraße', 'vorgeschriebene_fahrtrichtung_geradeaus',
+                        'vorgeschriebene_fahrtrichtung_geradeaus_oder_links',
+                        'vorgeschriebene_fahrtrichtung_geradeaus_oder_rechts',
+                        'vorgeschriebene_fahrtrichtung_links', 'vorgeschriebene_fahrtrichtung_links_vorbei',
+                        'vorgeschriebene_fahrtrichtung_rechts', 'vorgeschriebene_fahrtrichtung_rechts_vorbei',
+                       'wildwechsel',
+                       'zulässige_höchstgeschwindigkeit_100', 'zulässige_höchstgeschwindigkeit_120',
+                       'zulässige_höchstgeschwindigkeit_20', 'zulässige_höchstgeschwindigkeit_30',
+                       'zulässige_höchstgeschwindigkeit_50', 'zulässige_höchstgeschwindigkeit_60',
+                       'zulässige_höchstgeschwindigkeit_70', 'zulässige_höchstgeschwindigkeit_80',
+                       'zulässige_höchstgeschwindigkeit_80_ende', 'überholen_verboten_ende',
+                       'überholen_verboten_ende_tir',
+                       'überholverbot', 'überholverbot_tir']
+
+occupation_labels = ['free', 'occupied']
 
 
 # Program
@@ -53,23 +60,49 @@ def get_model(model_path, weights_path):
     return model
 
 
+def detect(image, model):
+    # Predicts the class of the given image
+    predictions = model.predict(np.array([image]))[0]
+    highest_val = -sys.maxsize - 1
+    index_of_highest = -1
+    if predictions.shape[0] != 2:
+        bound = len(traffic_sign_labels)
+    else:
+        bound = len(occupation_labels)
+
+    print(bound)
+    for i in range(0, bound):
+        if predictions[i] > highest_val:
+            highest_val = predictions[i]
+            index_of_highest = i
+    print("Highest index:", index_of_highest)
+    print("Highest val:", highest_val)
+
+    if predictions.shape[0] != 2:
+        return traffic_sign_labels[index_of_highest]
+    else:
+        return occupation_labels[index_of_highest]
+
+
 # Main
 def main():
     args = parser.parse_args()
     model = get_model(args.model_path, args.weights_path)
     image = np.array(Image.open(args.img_path)) / 255.0
-    print("min: ", np.min(image), "max:", np.max(image))
-
-    predictions = model.predict(np.array([image]))[0]
-    highest_val = -sys.maxsize - 1
-    index_of_highest = -1
-
-    for i in range(0, len(classes)):
-        if predictions[i] > highest_val:
-            highest_val = predictions[i]
-            index_of_highest = i
-
-    print("predicted: '", classes[index_of_highest], "' with the possibility of: ", highest_val)
+    # print("min: ", np.min(image), "max:", np.max(image))
+    #
+    # predictions = model.predict(np.array([image]))[0]
+    # highest_val = -sys.maxsize - 1
+    # index_of_highest = -1
+    #
+    # for i in range(0, len(traffic_sign_labels)):
+    #     if predictions[i] > highest_val:
+    #         highest_val = predictions[i]
+    #         index_of_highest = i
+    #
+    # print("predicted: '", traffic_sign_labels[index_of_highest], "' with the possibility of: ", highest_val)
+    detection_res = detect(image, model)
+    print(detection_res)
 
 
 if __name__ == "__main__":

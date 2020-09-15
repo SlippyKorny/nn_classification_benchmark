@@ -37,6 +37,5 @@ def main():
                     os.remove(inner_item_path)
 
 
-
 if __name__ == "__main__":
     main()
