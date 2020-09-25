@@ -1,3 +1,3 @@
 # nn_benchmark
 
-A simple classification benchmark of a couple of convolutional and residual neural network models.
+This repository contains a script and the source code of my *"Object classification with artificial neural networks:A comparative analysis"* paper.
