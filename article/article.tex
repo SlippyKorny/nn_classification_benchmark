@@ -1,0 +1,255 @@
+\documentclass{ijisa}
+\usepackage[utf8]{inputenc}
+\usepackage[english]{babel}
+
+\usepackage{pgfplots}
+% \pgfplotsset{width=5cm,compat=1.9}
+
+%% Title
+\title{Object classification with artificial neural networks: A comparative analysis}
+
+%% author
+
+\author{Kornel Domeradzki}
+% \affil{Institute of Computer Science / Siedlce University of Natural Sciences and Humanities, Siedlce, 08-110, Poland}
+\affil{Siedlce University, Faculty of Exact and Natural Sciences, Siedlce, Poland}
+\affil{Email: korneldomeradzki1@gmail.com}
+
+\author{Artur Niewiadomski}
+\affil{Siedlce University, Faculty of Exact and Natural Sciences, Siedlce, Poland}
+\affil{Email: artur.niewiadomski@uph.edu.pl}
+
+%% Dates and header variable 
+\thisvolume{XX}
+\thismonth{August}
+\thisyear{2020}
+\thisdoi{XX}
+\thisstartpage{01}
+\thisendpage{03}
+
+\begin{document}
+
+\abstract{Object classification is a problem which has attracted a lot of research attention in the recent years. Traditional approach to this problem is built on a shallow trainable architecture that was meant to detect handcrafted features. That approach works poorly and introduces many complications in situations where one is to work with more than a couple types of objects in an image with a large resolution. That is why in the past few years convolutional and residual neural networks have experienced a tremendous rise in popularity. In this paper, I provide a review on topics related to artificial neural networks and a brief overview of my research. My review begins with a short introduction to the topic of computer vision. Afterwards I cover briefly the concepts of neural networks, convolutional and residual neural networks and their commonly used models. Then I provide a comparative performance analysis of the previously mentioned models in a binary and multi-label classification problem. Finally, multiple conclusions are drawn, which are to serve as guidelines for future computer vision systems implementations. }
+
+\keywords{Object classification, neural networks, convolutional neural networks, residual neural networks}
+
+
+
+\maketitle
+\thispagestyle{thefirstpage}
+%%\thispagestyle{fancy}
+
+
+\section{A Brief Introduction to Computer Vision}
+
+In order to understand the problem of image based classification one should acquaintance themselves with the field of computer vision and its terminology. Computer vision is an interdisciplinary field of science which strives to understand and process the data acquired from a source of spatial distribution of radiation. Every object that we can observe emits some kind of radiation. If a subject of interest does not emit any radiation, nothing can be observed or processed. That is why appropriate illumination is necessary for the targets of a computer vision system. In order for the program to process the electromagnetic radiation we need a contraption capable of capturing said data. In the majority of situations such a task is handled by optical lenses however it could also be an imaging optical spectrometer, an x-ray tomograph or even a microwave dish. Those devices are commonly called cameras. In order for one of the aforementioned devices to supply the information to a processing unit, the captured radiation must be converted into digitized data. That process is handled by the sensors. They transform the received radiative flux density into a desired signal which then can be used for further processing. Said processing often means presenting higher-dimensional data, extracting desired features or categorizing the objects detected in the image into classes which is the main subject of this article. 
+% \cite{jahne2000computer}
+ 
+Originally in computer vision systems, image classification and object detection have been approached by extracting hand crafted features. Most systems used SIFT\cite{lowe2004distinctive}, or SURF methods which find features in the Gaussian scale space (particular instance of linear diffusion). However, the problem with that solution was that blurring an image resulted in not respecting the natural boundaries of objects in the same degree an unprocessed image would, which is why some other systems adopted Kaze\cite{Alcantarilla13bmvc} instead. Feature extraction remains however an imperfect solution to the problem since it tends to struggle with delivering the correct results for certain cases, mostly due to the possible diversity of appearances of the target, illumination conditions or different types of backgrounds. This has eventually led to a huge interest of appliance of different solutions in this problem which are neural networks - mainly speaking convolutional and residual neural networks. 
+
+\section{A Brief Overview of Artificial Neural Networks in Computer Vision systems}
+
+Artificial neural network is a concept of imitating the structure of a brain which has emerged for the first time in 1943 after the introduction of simplified neurons by McCulloch and Pitts\cite{mcculloch1943logical}. Neurons in that article were presented as models of biological neurons and as conceptual entities for circuits which were to perform certain computational tasks. That concept had however many deficiencies which were described in Minsky and Papert's book \textit{Perceptrons}\cite{minsky2017perceptrons}. That made most researchers leave the field. Interest in that concept has re-emerged after 40 years - in early eighties due to the discovery of error back-propagation and the continuous hardware advancements at the time.
+
+The modern artificial neural network is usually defined as a computational model with particular properties such as the ability to adapt or learn, to generalize, or to cluster or organize data, and which operation can be based on parallel processing\cite{krose1993introduction}. The aforementioned models can be visualized as a continuous net made up of layers, neurons and connections between them. Layers can be divided into three basic categories: input, hidden and output layers. 
+
+
+\begin{figure}[!h]
+\centering
+\includegraphics[width=.8\columnwidth]{Images/Colored_neural_network}
+\caption{Structure of a basic neural network} \label{fig:fig1}
+\end{figure}
+% This is from here: https://en.wikipedia.org/wiki/File:Colored_neural_network.svg.
+% TODO: Figure out how to reference the source
+
+Each neuron in all of the aforementioned layers accepts input from one or more sources and produces a single value which can be output to multiple destinations. The source and destination of the neuron's data however varies depending on which layer it resides in. Input layer's neutrons accept values supplied by the program and output their values to all the neurons of the first hidden layer. Hidden layers' neutrons accept input from each single neutron from the previous layer, multiply them by their corresponding weight, add the results of multiplication up, add a bias to that if defined and then they use the calculated value in a chosen activation function. The output of the activation function is the value that the neuron will hold. Those operations are the connections that connect neurons from the previous layer to the next one. That value after being calculated is then output to the next layer. That process continues on, until the value reaches the output layer.
+
+\begin{figure}[!h]
+\centering
+\[ a_n^m = f(\sum_{i=0}^{l} w_i^{(m-1)} a_i^{(m-1)} + b)\]
+
+\textit{a} - value hold by a given neuron\\
+\textit{m} - number of the layer (depth)\\
+\textit{n} - number of the neuron in the layer\\
+\textit{w} - weight\\
+\textit{l} - amount of neurons in \(m-1\) layer\\
+\textit{b} - bias of a given neuron connection
+
+% w - weight
+%   layer number
+% a 
+%   number in layer
+%
+% n - layer number
+% m - number in layer
+% i - iteration number
+% l - number of neutrons in a layer
+% b - bias
+\caption{Mathematical notation representing value of a neuron in a hidden or output layer}
+\end{figure}
+
+In the output layer values hold by the neurons are calculated the same way they were in the hidden layers. Output however is not altered in any way. Internal state of the neuron serves as both the output and the final result of the neural network's operation. 
+
+Due to their structure neural networks are a very suitable solution to a lot of problems in computer vision field. They have however a major flaw which slowed down the calculations in both the learning and operation significantly. That flaw is each neuron being fully connected to all the neurons from the previous layer. That approach creates an unnecessarily huge amount of parameters which often leads to overly long training time and overfitting. That is one of the reason why convolutional neural networks have recently become so popular. 
+
+Convolutional neural networks are designed with the idea of working on image data. They are mainly used for classifying the image into specific classes. They have neurons arranged in 3 dimensions: width, height and depth (it is important to note that in this type of networks depth refers to the amount of channels in an image rather than the depth of layer). That means that an input image made of a matrix of 32 pixels by 32 pixels with 3 colour channels (red, green and blue) would have these dimensions: 32x32x3 (width, height, depth respectively). 
+
+A typical network of this type usually consists of four types of layers: Convolutional, Pooling, Rectified Linear Units (ReLUs) and Fully connected layers. Convolutional layers consist of a set of learnable filters. All of the filters are small spatially however they extend through the full depth of the input volume. The data that the layer works on constantly changes since the filters are to be applied to multiple cutouts of the image - in other words we can say that we are sliding (convolving) our filter frame over the image and compute the dot products with the given inputs. As we convolve over the over the width and height of the input volume we produce a two dimensional activation map that signifies the possibility of a given feature's presence. As the network learns it determines useful patterns for itself. Those patterns usually are visual features such as edges that are slanted at a specific angle, blotches of some colour or even complex patterns such as honeycomb or wheel patterns. Pooling layer is a type of layer that is often put in between convolutional layers. Their main objective is to reduce the amount of parameters and computation in the network and as a result of that also to control overfitting. This layer acts independently on every depth slice of the input and resizes it spatially, using the MAX operation. The result of such an operation is that the input volume which could be the image data or the feature map will be scaled down. Most common practice is using pooling layers with filters of size of 2x2 with a stride of 2 downsamples every depth slice in the input by 2 along both width and height, discarding 75\% of the activations.
+
+\begin{figure}[!h]
+\centering
+\includegraphics[width=.8\columnwidth]{Images/pooling.png}
+\caption{Visualization of the pooling process} \label{fig:fig3}
+\end{figure}
+
+Rectified Linear Units layers are also responsible for transforming the feature map. They take in the values from either the convolution layers or pooling layers and transform negative values to zero. The last type of layer is the fully connected layer which in terms of structure is the same as the hidden or output layers from the classical neural networks. Usually they are used for the output of the network. Each neuron in such appliance holds the possibility of the object on the image being classified into the specific class.
+
+In most cases CNNs grant a great compromise between performance and accuracy. There are some appliances however that do not demand great performance but the highest possible accuracy. Such an example could be detection of tumors in computed tomography scans. We could continue to concatenate convolutional layers on top of activation and batch normalization layers to achieve a higher level of precision however this approach ironically often leads to lower accuracy\cite{he2016deep}.
+
+% TODO: Find out whether u can actually use this and do something about resolution
+% src: https://arxiv.org/pdf/1512.03385.pdf
+\begin{figure}[!h]
+\centering
+\includegraphics[width=.8\columnwidth]{Images/deep_cnn_result_error.png}
+\caption{Training error (left) and test error (right) on CIFAR-10 with 20-layer and 56-layer “plain” networks. The deeper network has higher training error, and thus test error} \label{fig:fig4}
+\end{figure}
+
+Higher accuracy without the risk of the aforementioned problem can be achieved with the use of Residual Neural Networks. The difference between CNNs and ResNets is that the latter introduces yet another type of layer called the residual block layers.
+
+% TODO: Finish resnets
+
+\begin{figure}[!h]
+\centering
+\includegraphics[width=.8\columnwidth]{Images/residual_block.png}
+\caption{Residual learning: a building block} \label{fig:fig5}
+\end{figure}
+
+% utilizes skip connections (shortcuts) to jump over some layers. Most models implement double- or triple- layer skips which contain ReLU layers and batch normalization.
+
+\section{Comparative Performance Analysis of Artificial Neural Network Models}
+
+\textbf{\subsection{Overview of the experimentation methodology}}
+
+The goal of this comparative performance analysis is to measure how well all of the three chosen architectures perform against one another in two chosen scenarios representing the very common use cases. 
+
+All of the architectures which are taken into consideration consist of two main components. The first one is a base feature extractor and the other component is a simple classifier. In this experimentation those feature extractors are taken into consideration: InceptionV3, InceptionResNetV2 and MobileNetV2. Each one of them is very deep which can significantly increase the training time and the final model could still need some manual tweaking to obtain the best results therefore it was decided to use pre-trained values provided by the keras library. The classifier on the other hand is a very simple component that consists of a single global average pooling 2D layer and a simple densely connected layer which is the main subject of the training process. In each application scenario the  models' last layer's neuron amount equals to the amount of classes to which the image can be classified.
+
+The training process of each architecture results in four models. The training script will save the first model after 20 epochs of training and save a new model every next 10 epochs with the last exported model being the one received after 50 epochs. That amount of models should help get a grasp if and when overfitting might occur for each of the architectures in the given scenarios. Another precaution taken to prevent overfitting is cross-validation which is used with the data split into validation and training data - 80\% of each batch is used for training and the remainder is used for validation. The used loss function is sparse categorical crossentropy, the used optimization technique is the RMSprop algorithm and the chosen base learning rate is 0.0001.
+
+The two chosen scenarios in which the networks are tested are meant to simulate two very common scenarios in which those architectures could be used. The First scenario is a simple binary classification problem of classifying a cropped image of a parking place into two classes - the first one being \textit{an occupied parking place} and the second one being \textit{a free parking place}. For training, testing and benchmarking all of the models cropped images of the CNR Parking Dataset\cite{amato2017deep}\cite{amato2016car} were used. The second scenario is a multi-label classification problem of 10 different classes. In this case the CIFAR-10 dataset is used.
+
+The time measurements were measured with the standard python library and the libraries used for the implementation of the benchmarks are tensorflow and keras.
+
+To benchmark the models a machine with these components was used: MSI B450 Tomahawk motherboard, AMD Ryzen 7 2700X CPU, Asus RTX2070 8GB Turbo GPU, 4 sticks of 4GB DDR4 2666MHz CL15 RAM. The red colour in the graphs below signify timings achieved when only CPU is utilized and green signifies timings achieved with the utilization of CUDA.
+
+\textbf{\subsection{Binary Classification Problem}}
+
+The binary classification problem is often considered an easy classification problem because of the sole amount of classes to which the objects can be categorized. That however does not always have to be true. The chosen parking occupancy test is an interesting case of this problem due to the variety of objects' sizes, shapes and colours. The other complication of this classification is how the weather affects the objects. Depending on the weather it might be hard to detect edges of some vehicles due to the sunlight's reflection or the raindrops might distort the received image from the camera. The CNR Parking dataset contains images with all of the aforementioned circumstances.
+
+Each of the models are trained on a dataset of over 3000 cropped parking images. Every image is of 75 by 75 pixels size. As it was mentioned before the images cover most of the problems that the network might have to deal with. The only exception is snowy conditions which are not present in the CNR parking dataset. 
+
+The data received during and after training of the models is displayed below.
+
+\begin{figure}[!h]
+\centering
+\scalebox{0.5}{\input{Images/Graphs/Binary/compilation_time.pgf}}
+\caption{Compilation time of binary classification models} \label{fig:fig6}
+\end{figure}
+
+The model that compiled the fastest was InceptionV3 which compiled in around 0.0060 seconds. MobileNetV2 compiled in 0.007 seconds and InceptionResNetV2 compiled the slowest - in 0.0080 seconds.
+
+\begin{figure}[!h]
+\centering
+\scalebox{0.5}{\input{Images/Graphs/Binary/training_time.pgf}}
+\caption{Training time of binary classification models} \label{fig:fig7}
+\end{figure}
+
+The fastest to finish training is MobileNetV2 which took only 71.18 seconds to train. InceptionV3 had to be trained for 80.66 seconds and the slowest one to train was InceptionResNetV2 which had to be trained for 144.68 seconds.
+
+\begin{figure}[!h]
+\centering
+\scalebox{0.5}{\input{Images/Graphs/Binary/accuracy_overtime.pgf}}
+\caption{Accuracy of binary classification models over time of training} \label{fig:fig8}
+\end{figure}
+
+The fastest model to reach the optimal point is MobileNetV2 which reached it after just one training. InceptionV3 reaches it after 5 epochs and InceptionResNetV3 reaches it after 6 epochs.
+
+\begin{figure}[!h]
+\centering
+\scalebox{0.5}{\input{Images/Graphs/Binary/accuracy.pgf}}
+\caption{Evaluation accuracy of CNR-Parking trained models} \label{fig:fig9}
+\end{figure}
+
+The received accuracy for each of the models is respectively: 93.89\%, 99.55\% and 99.70\%. There is a big 6\% accuracy gap between a light-weight classic convolutional model such as MobileNetV2 and residual models such as InceptionV3 and InceptionResNetV2.\\\\\\\\\\\\
+
+\begin{figure}[!h]
+\centering
+\scalebox{0.5}{\input{Images/Graphs/Binary/avg_evaluation_time.pgf}}
+\caption{Average evaluation time of CNR-Parking trained models} \label{fig:fig10}
+\end{figure}
+
+The fastest to evaluate an image is MobileNetV2 which can classify an object in around 0.067 seconds. InceptionV3's average is 0.071s and InceptionResNetV2's is 0.095s.
+
+\textbf{\subsection{Multi-label Classification Problem}}
+
+The multi-label classification problem is very common in modern artificial intelligence powered systems. It is present in appliances such as classifying the types of cells from electronic microscope scans and in classifying races of animals in an image. Currently this problem is definitely one of the most important problems in computer vision. One of the biggest obstacles for software developers when implementing a neural network for handling this problem is however picking the correct model that suits the performance and accuracy needs.
+
+Every model in this experimentation is trained to recognize one of 10 fundamentally different objects. All images in the dataset cover large angle variations and background clutter. CIFAR-10 dataset consists of 60,000 32x32 pixel images. Each class has 6000 images representing it. The dataset is divided into five training batches and one test batch, each with 10000 images. The test batch contains exactly 1000 randomly-selected images from each class. The training batches contain the remaining images in random order, but some training batches may contain more images from one class than another. Between them, the training batches contain exactly 5000 images from each class. 
+
+The data received during and after training of the models is displayed below.\\\\\\\\
+
+\begin{figure}[!h]
+\centering
+\scalebox{0.5}{\input{Images/Graphs/Multi/compilation_time.pgf}}
+\caption{Compilation time of multi-label classification models} \label{fig:fig6}
+\end{figure}
+
+The model that compiled the fastest was InceptionV3 which compiled in around 0.0050 seconds. MobileNetV2 compiled in 0.006 seconds and InceptionResNetV2 compiled the slowest - in 0.007 seconds.
+
+\begin{figure}[!h]
+\centering
+\scalebox{0.5}{\input{Images/Graphs/Multi/training_time.pgf}}
+\caption{Training time of multi-label classification models} \label{fig:fig7}
+\end{figure}
+
+The fastest to finish training is MobileNetV2 which took 1632.19 seconds to train. InceptionV3 had to be trained for 2605.42 seconds and the slowest one to train was InceptionResNetV2 which had to be trained for 4390.17 seconds.\\\\\\\\\\\\\\
+
+\begin{figure}[!h]
+\centering
+\scalebox{0.5}{\input{Images/Graphs/Multi/accuracy_overtime.pgf}}
+\caption{Accuracy of multi-label models over time of training} \label{fig:fig8}
+\end{figure}
+
+The accuracy over training in all of the models increases in a much slower rate than in the binary classification problem. InceptionResNetV2 seems to achieve the optimal point around the 13th epoch and doesn't improve much after it while the MobileNetV2 and InceptionV3 keep improving up to the 20th epoch.
+
+\begin{figure}[!h]
+\centering
+\scalebox{0.5}{\input{Images/Graphs/Multi/accuracy.pgf}}
+\caption{Evaluation accuracy of CIFAR-10 trained models} \label{fig:fig9}
+\end{figure}
+
+The received accuracy for each of the models is respectively: 91.01\%, 89.56\% and 90.24\%. Unlike in the binary classification problem, here we can observe a significant similarity in the accuracy of evaluation between the chosen models.\\\\\\\\\\\\
+
+\begin{figure}[!h]
+\centering
+\scalebox{0.5}{\input{Images/Graphs/Multi/avg_evaluation_time.pgf}}
+\caption{Average evaluation time of CIFAR-10 trained models} \label{fig:fig10}
+\end{figure}
+
+In this scenario the fastest model to evaluate an image is once again MobileNetV2 which can does it in around 0.00034 seconds. InceptionV3's average is 0.00053s and InceptionResNetV2's is 0.00094s.
+
+\section{Conclusions}
+
+Having seen the data presented above multiple conclusions can be drawn. The first one being the fact that compilation time in both cases for each of the models can be considered insignificant in a lot of systems due to it being lower than a tenth of a second. The delay of the script's startup most likely is caused by the tensorflow API loading and processing the Nvidia's CUDA dynamic libraries. 
+
+Training time on the other hand is strongly dependant on the type of the model and the amount of class into which the objects are to be classified. 20 epochs of training a ten class classification problem had taken over 23 times more time than a binary classification problem. In the case of binary classification most models reach their peak accuracy relatively quick - in the worst case scenario after six epochs which. In the multi-label training, the situation changes drastically. There is much less accuracy improvement between the epochs and the models only reach a satisfying result after 13 epochs. 
+
+Evaluation accuracy results are apparent in the binary classification problem. The MobileNetV2 is the least accurate model while the residual network models thrive with accuracy on average 6\% more likely to classify the object successfully. In the other scenario however all of the models perform very well and the difference in average successful classification between them is only around 1\%. It is however apparent that residual networks are able to get higher accuracy results with less training. 
+
+The results of evaluation time with the use of each of the models follows a similar pattern in both of cases. MobileNetV2 is the fastest following InceptionV3 and InceptionResNetV2. The residual networks take more time to evaluate an image.
+
+%% include bib file
+\bibliographystyle{unsrt}
+\bibliography{article_references}
+
+\end{document}
