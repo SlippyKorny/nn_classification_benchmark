@@ -1,11 +1,11 @@
 import argparse
 import time
-import tensorflow as tf
 from tensorflow.keras import datasets
 import tensorflow as tf
 import keras
 from keras import models
 import matplotlib.pyplot as plt
+import matplotlib
 
 parser = argparse.ArgumentParser(
     description='Trains, compiles and benchmarks a neural network model with either a binary- or multi-class dataset '
@@ -14,20 +14,27 @@ parser = argparse.ArgumentParser(
 parser.add_argument('--binary-path', dest='binary_path', default='parking_dataset/',
                     help='path to the folder with the binary classification dataset')
 
+parser.add_argument('--output-path', dest='output_path', default='',
+                    help='path to the folder to which all the graphs and data will be exported')
+
 parser.add_argument('--epochs', dest='epochs',
                     default="20",
                     help='number of training epochs (default: 20)')
 
-parser.add_argument('--binary', type=bool, default=False, help='If set then trains and benchmarks binary models')
+parser.add_argument('--binary', type=bool, default=False,
+                    help='If set to true then trains and benchmarks binary models')
+
+parser.add_argument('--tex', type=bool, default=False, help='If set to true the script will export to .pgf')
 
 
 class GraphData:
-    def __init__(self, model_name, comp_time, train_time, avg_eval_time, acc):
+    def __init__(self, model_name, comp_time, train_time, avg_eval_time, acc, acc_history):
         self.model_name = model_name
         self.compilation_time = comp_time
         self.training_time = train_time
         self.average_evaluation_time = avg_eval_time
         self.accuracy = acc
+        self.accuracy_history = acc_history
 
 
 # Tweaks the GPU for dynamic memory growth
@@ -103,51 +110,97 @@ def apply_classifier(base_model, class_count):
 
 
 # Generate a single bar plot with the given labels and values
-def generate_plot(vals, labels, header='Training time', y_axis_label='Training time (s)',
-                  title='Comparison of training time', path='graph.png'):
+def generate_bar_plot(vals, labels, header='Training time', y_axis_label='Training time (s)',
+                      title='Comparison of training time', path='graph.png'):
+    colors = ['blue', 'green', 'red']
     width = 0.35
     fig, ax = plt.subplots()
     ax.bar(labels, vals, width, label=header)
     ax.set_ylabel(y_axis_label)
     ax.set_title(title)
+    j = 0
     for i, v in enumerate(vals):
-        ax.text(v + 3, i + .25, str(v), color='blue', fontweight='bold')
+        ax.text(v + 3, i + .25, str(v), color=colors[j], fontweight='bold')
+        j += 1
 
     plt.savefig(path)
 
 
+# Generate a graph of the given values
+def generate_graph(vals, labels, path='graph.png', x_label='Epoch', y_label='Accuracy (%)',
+                   graph_title='Accuracy over time'):
+    colors = ['blue', 'green', 'red']
+    fig, ax = plt.subplots()
+    i = 0
+    for arr in vals:
+        plt.plot(arr, label=labels[i], color=colors[i])
+        i += 1
+    plt.ylabel(y_label)
+    plt.xlabel(x_label)
+    plt.grid()
+    plt.legend()
+    plt.savefig(path)
+
+
+def generate_csv(data_arr, path):
+    content = 'Model Name,Compilation Time,Training Time,Average Evaluation Time,Average Accuracy\n'
+    i = 0
+
+    for model in data_arr:
+        content += model.model_name + ',' + str(model.compilation_time) + ',' + str(model.training_time) + ',' + \
+                   str(model.average_evaluation_time) + ',' + str(model.accuracy) + '\n'
+        i += 1
+
+    with open(path, "w") as file:
+        file.write(content)
+
+
 # Generate all the plots with the benchmarking data
-def generate_plots(data_arr, path_prefix=''):
+def generate_plots(data_arr, path_prefix='', tex=False):
     vals = []
     labels = []
+    extension = '.png'
+    if tex:
+        matplotlib.use("pgf")
+        plt.rcParams.update({
+            "pgf.texsystem": "pdflatex",
+            'font.family': 'serif',
+            'text.usetex': True,
+            'pgf.rcfonts': False,
+        })
+        extension = '.pgf'
 
     # Compilation time
     for i in range(0, len(data_arr)):
         labels.append(data_arr[i].model_name)
         vals.append(data_arr[i].compilation_time)
-        print("Compilation time for", labels[i], 'is equal to', data_arr[i].compilation_time)
-    generate_plot(vals, labels, 'Compilation time', 'Compilation time (s)', 'Comparison of compilation time',
-                  path_prefix + 'compilation_time.png')
+    generate_bar_plot(vals, labels, 'Compilation time', 'Compilation time (s)', 'Comparison of compilation time',
+                      path_prefix + 'compilation_time' + extension)
 
     # Training time
     for i in range(0, len(data_arr)):
         vals[i] = data_arr[i].training_time
-        print("Training time for", labels[i], 'is equal to', data_arr[i].training_time)
-    generate_plot(vals, labels, path=path_prefix + 'training_time.png')
+    generate_bar_plot(vals, labels, path=path_prefix + 'training_time' + extension)
 
     # Avg eval time
     for i in range(0, len(data_arr)):
         vals[i] = data_arr[i].average_evaluation_time
-        print("Average evaluation time for", labels[i], 'is equal to', data_arr[i].average_evaluation_time)
-    generate_plot(vals, labels, 'Average evaluation time', 'Evaluation time (s)', 'Comparison of evaluation time',
-                  path_prefix + 'avg_evaluation_time.png')
+    generate_bar_plot(vals, labels, 'Average evaluation time', 'Evaluation time (s)', 'Comparison of evaluation time',
+                      path_prefix + 'avg_evaluation_time' + extension)
 
     # Accuracy
     for i in range(0, len(data_arr)):
         vals[i] = data_arr[i].accuracy
-        print('Accuracy for', labels[i], 'is equal to', data_arr[i].accuracy)
-    generate_plot(vals, labels, 'Accuracy of evaluation', 'Success rate (%)', 'Comparison of evaluation accuracy',
-                  path_prefix + 'accuracy.png')
+    generate_bar_plot(vals, labels, 'Accuracy of evaluation', 'Success rate (%)', 'Comparison of evaluation accuracy',
+                      path_prefix + 'accuracy' + extension)
+
+    # History of accuracy
+    for i in range(0, len(data_arr)):
+        vals[i] = data_arr[i].accuracy_history
+    generate_graph(vals, labels, path_prefix + 'accuracy_overtime' + extension)
+
+    # Generate CSV
+    generate_csv(data_arr, path_prefix + 'data.csv')
 
 
 # Main
@@ -183,22 +236,21 @@ def main():
         if not args.binary:
             start = time.time()
             history = local_models[key].fit(train_ds, train_labels, epochs=epochs,
-                                        validation_data=(test_ds, test_labels))
+                                            validation_data=(test_ds, test_labels))
             training_time = time.time() - start
             start = time.time()
             test_loss, test_acc = local_models[key].evaluate(test_ds, test_labels, verbose=2)
             avg_evaluation_time = (time.time() - start) / len(test_ds)
         else:
             start = time.time()
-            history = local_models[key].fit(train_ds, epochs=epochs,
-                                            validation_data=test_ds)
+            history = local_models[key].fit(train_ds, epochs=epochs, validation_data=test_ds)
             training_time = time.time() - start
             start = time.time()
             test_loss, test_acc = local_models[key].evaluate(test_ds, verbose=2)
             avg_evaluation_time = (time.time() - start) / len(test_ds)
-        model_stats.append(GraphData(key, compilation_time, training_time, avg_evaluation_time, test_acc))
-
-    generate_plots(model_stats)
+        acc_history = history.history['accuracy']
+        model_stats.append(GraphData(key, compilation_time, training_time, avg_evaluation_time, test_acc, acc_history))
+    generate_plots(model_stats, args.output_path, args.tex)
 
 
 if __name__ == "__main__":
