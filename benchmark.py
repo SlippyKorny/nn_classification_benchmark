@@ -115,12 +115,13 @@ def generate_bar_plot(vals, labels, header='Training time', y_axis_label='Traini
     colors = ['blue', 'green', 'red']
     width = 0.35
     fig, ax = plt.subplots()
-    ax.bar(labels, vals, width, label=header)
+    bars = ax.bar(labels, vals, width, label=header)
     ax.set_ylabel(y_axis_label)
     ax.set_title(title)
     j = 0
     for i, v in enumerate(vals):
         ax.text(v + 3, i + .25, str(v), color=colors[j], fontweight='bold')
+        bars[j].set_color(colors[j])
         j += 1
 
     plt.savefig(path)
