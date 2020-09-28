@@ -21,10 +21,12 @@ parser.add_argument('--epochs', dest='epochs',
                     default="20",
                     help='number of training epochs (default: 20)')
 
-parser.add_argument('--binary', type=bool, default=False,
+parser.add_argument('--binary', '-b', action='store_true',
                     help='If set to true then trains and benchmarks binary models')
 
-parser.add_argument('--tex', type=bool, default=False, help='If set to true the script will export to .pgf')
+parser.add_argument('--all', '-a', action='store_true', help='If the flag is set then benchmarks both datasets')
+
+parser.add_argument('--tex', '-t', action='store_true', help='If the flag is set then the script will export to .pgf')
 
 
 class GraphData:
@@ -127,6 +129,10 @@ def generate_bar_plot(vals, labels, header='Training time', y_axis_label='Traini
     plt.savefig(path)
 
 
+# Generate bar plots
+# TODO:
+
+
 # Generate a graph of the given values
 def generate_graph(vals, labels, path='graph.png', x_label='Epoch', y_label='Accuracy (%)',
                    graph_title='Accuracy over time'):
@@ -143,6 +149,7 @@ def generate_graph(vals, labels, path='graph.png', x_label='Epoch', y_label='Acc
     plt.savefig(path)
 
 
+# Generates a csv file with the information on training
 def generate_csv(data_arr, path):
     content = 'Model Name,Compilation Time,Training Time,Average Evaluation Time,Average Accuracy\n'
     i = 0
@@ -204,54 +211,87 @@ def generate_plots(data_arr, path_prefix='', tex=False):
     generate_csv(data_arr, path_prefix + 'data.csv')
 
 
-# Main
-def main():
-    # Load command line data
-    args = parser.parse_args()
-    epochs = int(args.epochs)
+# Benchmarks
+def benchmark_models(models, binary, epochs, base_learning_rate, train_ds, train_labels, test_ds, test_labels):
+    model_stats = []
+    for key, val in models.items():
+        models[key] = apply_classifier(models[key], len(train_labels))
+        start = time.time()
+        models[key].compile(optimizer=tf.keras.optimizers.RMSprop(lr=base_learning_rate),
+                            loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+                            metrics=['accuracy'])
+        compilation_time = time.time() - start
+        if not binary:
+            start = time.time()
+            history = models[key].fit(train_ds, train_labels, epochs=epochs, validation_data=(test_ds, test_labels))
+            training_time = time.time() - start
+            start = time.time()
+            test_loss, test_acc = models[key].evaluate(test_ds, test_labels, verbose=2)
+            avg_evaluation_time = (time.time() - start) / len(test_ds)
+        else:
+            start = time.time()
+            history = models[key].fit(train_ds, epochs=epochs, validation_data=test_ds)
+            training_time = time.time() - start
+            start = time.time()
+            test_loss, test_acc = models[key].evaluate(test_ds, verbose=2)
+            avg_evaluation_time = (time.time() - start) / len(test_ds)
+        acc_history = history.history['accuracy']
+        model_stats.append(GraphData(key, compilation_time, training_time, avg_evaluation_time, test_acc, acc_history))
+    return model_stats
 
-    # CUDA Tweaks
-    tweak_gpu()
 
+# Defines the workflow of training and benchmarking when working with only one dataset
+def single_dataset_scenario(binary, epochs, binary_path, output_path, tex):
     # Load the dataset
-    if not args.binary:
+    if not binary:
         (train_ds, train_labels), (test_ds, test_labels) = datasets.cifar10.load_data()
     else:
-        (train_ds, train_labels), (test_ds, test_labels) = load_binary_dataset(args.binary_path, 128)
+        (train_ds, train_labels), (test_ds, test_labels) = load_binary_dataset(binary_path, 128)
 
     # Compile, train and evaluate and save the data to the data dictionary
-    model_stats = []
     img_size = (75, 75, 3)
     local_models = {'MobileNetV2': get_model(img_size, 'MobileNetV2'),
                     'InceptionV3': get_model(img_size, 'InceptionV3'),
                     'InceptionResNetV2': get_model(img_size, 'InceptionResNetV2')}
-
     base_learning_rate = 0.0001
-    for key, val in local_models.items():
-        local_models[key] = apply_classifier(local_models[key], len(train_labels))
-        start = time.time()
-        local_models[key].compile(optimizer=tf.keras.optimizers.RMSprop(lr=base_learning_rate),
-                                  loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-                                  metrics=['accuracy'])
-        compilation_time = time.time() - start
-        if not args.binary:
-            start = time.time()
-            history = local_models[key].fit(train_ds, train_labels, epochs=epochs,
-                                            validation_data=(test_ds, test_labels))
-            training_time = time.time() - start
-            start = time.time()
-            test_loss, test_acc = local_models[key].evaluate(test_ds, test_labels, verbose=2)
-            avg_evaluation_time = (time.time() - start) / len(test_ds)
-        else:
-            start = time.time()
-            history = local_models[key].fit(train_ds, epochs=epochs, validation_data=test_ds)
-            training_time = time.time() - start
-            start = time.time()
-            test_loss, test_acc = local_models[key].evaluate(test_ds, verbose=2)
-            avg_evaluation_time = (time.time() - start) / len(test_ds)
-        acc_history = history.history['accuracy']
-        model_stats.append(GraphData(key, compilation_time, training_time, avg_evaluation_time, test_acc, acc_history))
-    generate_plots(model_stats, args.output_path, args.tex)
+    model_stats = benchmark_models(local_models, binary, epochs, base_learning_rate, train_ds, train_labels, test_ds,
+                                   test_labels)
+    generate_plots(model_stats, output_path, tex)
+
+
+# Defines the workflow of training and benchmarking when working with both datasets
+def both_datasets_scenario(epochs, binary_path, output_path, tex):
+    (cifar_train_ds, cifar_train_labels), (cifar_test_ds, cifar_test_labels) = datasets.cifar10.load_data()
+    (binary_train_ds, binary_train_labels), (binary_test_ds, binary_test_labels) = load_binary_dataset(binary_path, 128)
+
+    # Prepare resize layers and feature extractors
+    img_size = (75, 75, 3)
+    binary_models = {'MobileNetV2': get_model(img_size, 'MobileNetV2'),
+                    'InceptionV3': get_model(img_size, 'InceptionV3'),
+                    'InceptionResNetV2': get_model(img_size, 'InceptionResNetV2')}
+    multi_models = {'MobileNetV2': get_model(img_size, 'MobileNetV2'),
+                    'InceptionV3': get_model(img_size, 'InceptionV3'),
+                    'InceptionResNetV2': get_model(img_size, 'InceptionResNetV2')}
+    base_learning_rate = 0.0001
+    binary_model_stats = benchmark_models(binary_models, True, epochs, base_learning_rate, binary_train_ds,
+                                          binary_train_labels, binary_test_ds, binary_test_labels)
+    multi_model_stats = benchmark_models(multi_models, False, epochs, base_learning_rate, cifar_train_ds,
+                                         cifar_train_labels, cifar_test_ds, cifar_test_labels)
+    generate_plots(binary_model_stats, output_path, tex)
+
+
+# Main
+def main():
+    # Load command line data
+    args = parser.parse_args()
+
+    # CUDA Tweaks
+    tweak_gpu()
+
+    if not args.all:
+        single_dataset_scenario(bool(args.binary), int(args.epochs), args.binary_path, args.output_path, args.tex)
+    else:
+        both_datasets_scenario(int(args.epochs), args.binary_path, args.output_path, args.tex)
 
 
 if __name__ == "__main__":
