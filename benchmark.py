@@ -28,6 +28,11 @@ parser.add_argument('--all', '-a', action='store_true', help='If the flag is set
 
 parser.add_argument('--tex', '-t', action='store_true', help='If the flag is set then the script will export to .pgf')
 
+parser.add_argument('--dynamic-growth', '-d', action='store_true', help='If the flag is set then the script will '
+                                                                        'enable dynamic GDDR memory allocation (Fixes '
+                                                                        'crashes on some GPUs. Do not use with CPU '
+                                                                        'training)')
+
 
 class GraphData:
     def __init__(self, model_name, comp_time, train_time, avg_eval_time, acc, acc_history):
@@ -212,28 +217,28 @@ def generate_plots(data_arr, path_prefix='', tex=False):
 
 
 # Benchmarks
-def benchmark_models(models, binary, epochs, base_learning_rate, train_ds, train_labels, test_ds, test_labels):
+def benchmark_models(model_dict, binary, epochs, base_learning_rate, train_ds, train_labels, test_ds, test_labels):
     model_stats = []
-    for key, val in models.items():
-        models[key] = apply_classifier(models[key], len(train_labels))
+    for key, val in model_dict.items():
+        model_dict[key] = apply_classifier(model_dict[key], len(train_labels))
         start = time.time()
-        models[key].compile(optimizer=tf.keras.optimizers.RMSprop(lr=base_learning_rate),
-                            loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
-                            metrics=['accuracy'])
+        model_dict[key].compile(optimizer=tf.keras.optimizers.RMSprop(lr=base_learning_rate),
+                                loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+                                metrics=['accuracy'])
         compilation_time = time.time() - start
         if not binary:
             start = time.time()
-            history = models[key].fit(train_ds, train_labels, epochs=epochs, validation_data=(test_ds, test_labels))
+            history = model_dict[key].fit(train_ds, train_labels, epochs=epochs, validation_data=(test_ds, test_labels))
             training_time = time.time() - start
             start = time.time()
-            test_loss, test_acc = models[key].evaluate(test_ds, test_labels, verbose=2)
+            test_loss, test_acc = model_dict[key].evaluate(test_ds, test_labels, verbose=2)
             avg_evaluation_time = (time.time() - start) / len(test_ds)
         else:
             start = time.time()
-            history = models[key].fit(train_ds, epochs=epochs, validation_data=test_ds)
+            history = model_dict[key].fit(train_ds, epochs=epochs, validation_data=test_ds)
             training_time = time.time() - start
             start = time.time()
-            test_loss, test_acc = models[key].evaluate(test_ds, verbose=2)
+            test_loss, test_acc = model_dict[key].evaluate(test_ds, verbose=2)
             avg_evaluation_time = (time.time() - start) / len(test_ds)
         acc_history = history.history['accuracy']
         model_stats.append(GraphData(key, compilation_time, training_time, avg_evaluation_time, test_acc, acc_history))
@@ -286,8 +291,10 @@ def main():
     args = parser.parse_args()
 
     # CUDA Tweaks
-    tweak_gpu()
+    if args.dynamic_growth:
+        tweak_gpu()
 
+    # Training scenarios
     if not args.all:
         single_dataset_scenario(bool(args.binary), int(args.epochs), args.binary_path, args.output_path, args.tex)
     else:
