@@ -148,10 +148,6 @@ def generate_double_bars_plot(vals_left, vals_right, labels, y_axis_label='Train
     plt.ylabel(y_axis_label)
     plt.xticks(x + width/2, labels)
 
-    # Legend
-    binary_patch = mpatches.Patch(color='royalblue', label='Binary Classification Model')
-    multi_patch = mpatches.Patch(color='indianred', label='Multi-Label Classification Model')
-    plt.legend(handles=[binary_patch, multi_patch])
     plt.savefig(path)
 
 
@@ -167,7 +163,6 @@ def generate_graph(vals, labels, path='graph.png', x_label='Epoch', y_label='Acc
     plt.ylabel(y_label)
     plt.xlabel(x_label)
     plt.grid()
-    # plt.legend()
     plt.savefig(path)
 
 
