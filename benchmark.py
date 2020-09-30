@@ -5,7 +5,10 @@ import tensorflow as tf
 import keras
 from keras import models
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 import matplotlib
+import numpy as np
+import gc
 
 parser = argparse.ArgumentParser(
     description='Trains, compiles and benchmarks a neural network model with either a binary- or multi-class dataset '
@@ -125,17 +128,31 @@ def generate_bar_plot(vals, labels, header='Training time', y_axis_label='Traini
     bars = ax.bar(labels, vals, width, label=header)
     ax.set_ylabel(y_axis_label)
     ax.set_title(title)
+    # ax.set_xticks()
     j = 0
     for i, v in enumerate(vals):
         ax.text(v + 3, i + .25, str(v), color=colors[j], fontweight='bold')
         bars[j].set_color(colors[j])
         j += 1
-
     plt.savefig(path)
 
 
-# Generate bar plots
-# TODO:
+# Generate grouped bar plot with two pieces of data
+def generate_double_bars_plot(vals_left, vals_right, labels, y_axis_label='Training time (s)',
+                              title='Comparison of training time', path='graph.png'):
+    width = 0.35
+    x = np.arange(len(vals_left))
+    plt.bar(x, vals_left, width=width, color='royalblue', zorder=2)
+    plt.bar(x + width, vals_right, width=width, color='indianred', zorder=2)
+    plt.title(title)
+    plt.ylabel(y_axis_label)
+    plt.xticks(x + width/2, labels)
+
+    # Legend
+    binary_patch = mpatches.Patch(color='royalblue', label='Binary Classification Model')
+    multi_patch = mpatches.Patch(color='indianred', label='Multi-Label Classification Model')
+    plt.legend(handles=[binary_patch, multi_patch])
+    plt.savefig(path)
 
 
 # Generate a graph of the given values
@@ -150,7 +167,7 @@ def generate_graph(vals, labels, path='graph.png', x_label='Epoch', y_label='Acc
     plt.ylabel(y_label)
     plt.xlabel(x_label)
     plt.grid()
-    plt.legend()
+    # plt.legend()
     plt.savefig(path)
 
 
@@ -168,7 +185,7 @@ def generate_csv(data_arr, path):
         file.write(content)
 
 
-# Generate all the plots with the benchmarking data
+# Generate all the plots with the benchmarking data after training for one scenario
 def generate_plots(data_arr, path_prefix='', tex=False):
     vals = []
     labels = []
@@ -214,6 +231,65 @@ def generate_plots(data_arr, path_prefix='', tex=False):
 
     # Generate CSV
     generate_csv(data_arr, path_prefix + 'data.csv')
+
+
+# Generate all the plots with the benchmarking data after training for one scenario
+def generate_plots_both_scenarios(binary_arr, multi_arr, path_prefix='', tex=False):
+    vals_left = []
+    vals_right = []
+    labels = []
+    extension = '.png'
+    if tex:
+        matplotlib.use("pgf")
+        plt.rcParams.update({
+            "pgf.texsystem": "pdflatex",
+            'font.family': 'serif',
+            'text.usetex': True,
+            'pgf.rcfonts': False,
+        })
+        extension = '.pgf'
+
+    # Compilation time
+    for i in range(len(binary_arr)):
+        labels.append(binary_arr[i].model_name)
+        vals_left.append(binary_arr[i].compilation_time)
+        vals_right.append(multi_arr[i].compilation_time)
+    generate_double_bars_plot(vals_left, vals_right, labels, 'Compilation time (s)', 'Comparison of compilation time',
+                              path_prefix + 'compilation_time' + extension)
+
+    # Avg eval time
+    for i in range(len(binary_arr)):
+        vals_left.append(binary_arr[i].average_evaluation_time)
+        vals_right.append(multi_arr[i].average_evaluation_time)
+    generate_double_bars_plot(vals_left, vals_right, labels, 'Evaluation time (s)', 'Comparison of evaluation time',
+                              path_prefix + 'avg_evaluation_time' + extension)
+
+    # Avg accuracy
+    for i in range(len(binary_arr)):
+        vals_left.append(binary_arr[i].accuracy)
+        vals_right.append(multi_arr[i].accuracy)
+    generate_double_bars_plot(vals_left, vals_right, labels, 'Success rate (%)', 'Comparison of evaluation accuracy',
+                              path_prefix + 'accuracy' + extension)
+
+    # Training times
+    for i in range(len(binary_arr)):  # binary
+        vals_left[i] = binary_arr[i].training_time
+    for i in range(len(multi_arr)):  # multi
+        vals_right[i] = multi_arr[i].training_time
+    generate_bar_plot(vals_left, labels, path=path_prefix + 'binary_training_time' + extension)
+    generate_bar_plot(vals_right, labels, path=path_prefix + 'multi_training_time' + extension)
+
+    # History of accuracy
+    for i in range(0, len(binary_arr)):  # binary
+        vals_left[i] = binary_arr[i].accuracy_history
+    for i in range(0, len(binary_arr)):  # multi
+        vals_right[i] = multi_arr[i].accuracy_history
+    generate_graph(vals_left, labels, path_prefix + 'binary_accuracy_overtime' + extension)
+    generate_graph(vals_right, labels, path_prefix + 'multi_accuracy_overtime' + extension)
+
+    # Generate CSVs
+    generate_csv(binary_arr, path_prefix + 'binary_data.csv')
+    generate_csv(multi_arr, path_prefix + 'multi_data.csv')
 
 
 # Benchmarks
@@ -266,7 +342,7 @@ def single_dataset_scenario(binary, epochs, binary_path, output_path, tex):
 
 # Defines the workflow of training and benchmarking when working with both datasets
 def both_datasets_scenario(epochs, binary_path, output_path, tex):
-    (cifar_train_ds, cifar_train_labels), (cifar_test_ds, cifar_test_labels) = datasets.cifar10.load_data()
+    # Load the binary classification dataset
     (binary_train_ds, binary_train_labels), (binary_test_ds, binary_test_labels) = load_binary_dataset(binary_path, 128)
 
     # Prepare resize layers and feature extractors
@@ -274,15 +350,28 @@ def both_datasets_scenario(epochs, binary_path, output_path, tex):
     binary_models = {'MobileNetV2': get_model(img_size, 'MobileNetV2'),
                     'InceptionV3': get_model(img_size, 'InceptionV3'),
                     'InceptionResNetV2': get_model(img_size, 'InceptionResNetV2')}
+    base_learning_rate = 0.0001
+
+    # Benchmark binary classification model and then free memory of the dataset
+    binary_model_stats = benchmark_models(binary_models, True, epochs, base_learning_rate, binary_train_ds,
+                                          binary_train_labels, binary_test_ds, binary_test_labels)
+    binary_train_ds, binary_train_labels, binary_test_ds, binary_test_labels = None, None, None, None
+    binary_models = None
+    print("Finished training binary classification models")
+    gc.collect()
+
+    # Prepare the multi-label classification models, dataset and benchmark them and then free the memory of the dataset
     multi_models = {'MobileNetV2': get_model(img_size, 'MobileNetV2'),
                     'InceptionV3': get_model(img_size, 'InceptionV3'),
                     'InceptionResNetV2': get_model(img_size, 'InceptionResNetV2')}
-    base_learning_rate = 0.0001
-    binary_model_stats = benchmark_models(binary_models, True, epochs, base_learning_rate, binary_train_ds,
-                                          binary_train_labels, binary_test_ds, binary_test_labels)
+    (cifar_train_ds, cifar_train_labels), (cifar_test_ds, cifar_test_labels) = datasets.cifar10.load_data()
     multi_model_stats = benchmark_models(multi_models, False, epochs, base_learning_rate, cifar_train_ds,
                                          cifar_train_labels, cifar_test_ds, cifar_test_labels)
-    generate_plots(binary_model_stats, output_path, tex)
+    cifar_train_ds, cifar_train_labels, cifar_test_ds, cifar_test_labels = None, None, None, None
+    multi_models = None
+    print("Finished training multi-label classification models")
+    gc.collect()
+    generate_plots_both_scenarios(binary_model_stats, multi_model_stats, output_path, tex)
 
 
 # Main
